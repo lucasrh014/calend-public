@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Calendário de Licitações</title>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  
+  <!-- Adiciona o Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+  
+  <script>
+    // Sua configuração do Firebase
+    const firebaseConfig = {
+      apiKey: "sua-api-key",  // Substitua pela sua chave
+      authDomain: "seu-projeto.firebaseapp.com",  // Substitua pelo seu domínio
+      projectId: "seu-projeto-id",  // Substitua pelo seu ID de projeto
+      storageBucket: "seu-projeto.appspot.com",  // Substitua pelo seu bucket
+      messagingSenderId: "seu-sender-id",  // Substitua pelo seu sender ID
+      appId: "seu-app-id",  // Substitua pelo seu app ID
+      measurementId: "seu-measurement-id"  // Substitua pelo seu measurement ID
+    };
+
+    // Inicializar o Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
+
+  <style>
+    /* Estilos gerais */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: #f5f7fa;
+      display: flex;
+    }
+
+    #menu {
+      width: 220px;
+      background-color: #2c3e50;
+      color: white;
+      height: 100vh;
+      padding: 20px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    #menu h2 {
+      text-align: center;
+      font-size: 20px;
+      margin: 0;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #7f8c8d;
+    }
+
+    #menu a {
+      color: white;
+      text-decoration: none;
+      padding: 10px;
+      border-radius: 6px;
+      background-color: #34495e;
+      text-align: center;
+      transition: background 0.3s;
+    }
+
+    #menu a:hover {
+      background-color: #2980b9;
+    }
+
+    #main-content {
+      margin-left: 220px;
+      padding: 30px;
+      flex-grow: 1;
+      overflow-y: auto;
+    }
+
+    #calendar-section {
+      display: block;
+    }
+
+    #calendar, #prazos {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    #adicionarEvento {
+      display: block;
+      margin: 20px auto;
+      padding: 12px 24px;
+      font-size: 16px;
+      background-color: #27ae60;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    #adicionarEvento:hover {
+      background-color: #1e8449;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+      background: white;
+      margin: 5% auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 400px;
+      max-width: 90%;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-content input, .modal-content textarea, .modal-content select {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .modal-content button {
+      padding: 10px 16px;
+      margin: 5px 4px 0 0;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .save-btn { background-color: #3498db; color: white; }
+    .delete-btn { background-color: #e74c3c; color: white; }
+    .close-btn { background-color: #7f8c8d; color: white; }
+
+    .prazos-lista ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .prazos-lista li {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .status-marker {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="menu">
+    <h2>Licitações</h2>
+    <a href="#" onclick="mostrarCalendario()">Calendário</a>
+    <a href="#" onclick="mostrarPrazos()">Próximos Prazos</a>
+  </div>
+  <div id="main-content">
+    <div id="calendar-section">
+      <button id="adicionarEvento">Adicionar Evento</button>
+      <div id="calendar"></div>
+    </div>
+    <div id="prazos" style="display:none">
+      <h3>Próximos Prazos</h3>
+      <div class="prazos-lista">
+        <ul id="listaPrazos"></ul>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <h3>Detalhes do Evento</h3>
+      <input type="text" id="titulo" placeholder="Título">
+      <input type="datetime-local" id="data">
+      <select id="tipo">
+        <option value="Pregão Eletrônico">Pregão Eletrônico</option>
+        <option value="Pregão Presencial">Pregão Presencial</option>
+        <option value="Concorrência Eletrônica">Concorrência Eletrônica</option>
+        <option value="Concorrência Presencial">Concorrência Presencial</option>
+        <option value="Leilão">Leilão</option>
+      </select>
+      <select id="situacao">
+        <option value="Planejamento">Planejamento</option>
+        <option value="Em andamento">Em andamento</option>
+        <option value="Aprovada">Aprovada</option>
+        <option value="Concluída">Concluída</option>
+        <option value="Prazo Crítico">Prazo Crítico</option>
+      </select>
+      <input type="text" id="responsavel" placeholder="Responsável">
+      <textarea id="descricao" placeholder="Descrição"></textarea>
+      <button class="save-btn" onclick="salvarEvento()">Salvar</button>
+      <button class="delete-btn" onclick="excluirEvento()">Excluir</button>
+      <button class="close-btn" onclick="fecharModal()">Cancelar</button>
+    </div>
+  </div>
+
+  <script>
+    let calendar;
+    let eventos = [];
+    let eventoSelecionado = null;
+
+    function inicializarCalendario() {
+      const calendarEl = document.getElementById('calendar');
+      calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'pt-br',
+        selectable: true,
+        events: function(fetchInfo, successCallback, failureCallback) {
+          db.collection("eventos").get()
+            .then((querySnapshot) => {
+              const eventos = [];
+              querySnapshot.forEach((doc) => {
+                const evento = doc.data();
+                eventos.push({
+                  title: evento.titulo,
+                  start: evento.data.toDate(),
+                  extendedProps: {
+                    tipo: evento.tipo,
+                    situacao: evento.situacao,
+                    responsavel: evento.responsavel,
+                    descricao: evento.descricao
+                  }
+                });
+              });
+              successCallback(eventos);
+            })
+            .catch((error) => {
+              failureCallback(error);
+            });
+        },
+        eventClick: function(info) {
+          eventoSelecionado = info.event;
+          document.getElementById('titulo').value = info.event.title;
+          document.getElementById('data').value = info.event.start.toISOString().slice(0, 16);
+          document.getElementById('tipo').value = info.event.extendedProps.tipo;
+          document.getElementById('situacao').value = info.event.extendedProps.situacao;
+          document.getElementById('responsavel').value = info.event.extendedProps.responsavel;
+          document.getElementById('descricao').value = info.event.extendedProps.descricao;
+          document.getElementById('modal').style.display = 'block';
+        }
+      });
+      calendar.render();
+    }
+
+    function salvarEvento() {
+      const titulo = document.getElementById('titulo').value;
+      const data = document.getElementById('data').value;
+      const tipo = document.getElementById('tipo').value;
+      const situacao = document.getElementById('situacao').value;
+      const responsavel = document.getElementById('responsavel').value;
+      const descricao = document.getElementById('descricao').value;
+
+      const evento = {
+        titulo,
+        data: firebase.firestore.Timestamp.fromDate(new Date(data)),
+        tipo,
+        situacao,
+        responsavel,
+        descricao
+      };
+
+      // Salvar no Firestore
+      db.collection("eventos").add(evento)
+        .then((docRef) => {
+          console.log("Documento escrito com ID: ", docRef.id);
+          calendar.addEvent({
+            title: titulo,
+            start: data,
+            allDay: false,
+            tipo,
+            situacao,
+            responsavel,
+            descricao
+          });
+          fecharModal();
+        })
+        .catch((error) => {
+          console.error("Erro ao adicionar documento: ", error);
+        });
+    }
+
+    function fecharModal() {
+      document.getElementById('modal').style.display = 'none';
+    }
+
+    function mostrarCalendario() {
+      document.getElementById('calendar-section').style.display = 'block';
+      document.getElementById('prazos').style.display = 'none';
+      inicializarCalendario();
+    }
+
+    function mostrarPrazos() {
+      document.getElementById('calendar-section').style.display = 'none';
+      document.getElementById('prazos').style.display = 'block';
+    }
+
+    window.onload = function() {
+      mostrarCalendario();
+    }
+  </script>
+</body>
+</html>
